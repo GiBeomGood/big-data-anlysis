@@ -88,11 +88,13 @@ def get_relative_neighbors(node1, epsilon, graph: nx.classes.graph.Graph):
     return result
 
 
-def my_nlta(graph: nx.classes.graph.Graph, epsilon, true_file_path=None, max_epochs=100):
+def my_nlta(graph: nx.classes.graph.Graph, epsilon, strategy='prob', true_file_path=None, max_epochs=100):
     nodes = tuple(graph.nodes())
     nodes_num = len(nodes)
     stop_iteration = False
     epoch = 0
+    assert strategy in ('prob', 'freq')
+    decide_label_func: function = choice if strategy == 'prob' else frequentest_label
 
     indices = sample(range(nodes_num), k=nodes_num)
     nodes = tuple(nodes[index] for index in indices)
@@ -115,8 +117,7 @@ def my_nlta(graph: nx.classes.graph.Graph, epsilon, true_file_path=None, max_epo
                 non_neighbor_count += 1
 
             neighbors_labels = tuple(labels[neighbor] for neighbor in neighbors)
-            # labels[node] = choice(neighbors_labels)
-            labels[node] = frequentest_label(neighbors_labels)
+            labels[node] = decide_label_func(neighbors_labels)
 
             pbar_update()
             
