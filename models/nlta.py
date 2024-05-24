@@ -1,4 +1,5 @@
-from random import choice, sample
+from collections import defaultdict
+from random import choice, choices, sample
 
 import networkx as nx
 from tqdm import tqdm
@@ -88,13 +89,45 @@ def get_relative_neighbors(node1, epsilon, graph: nx.classes.graph.Graph):
     return result
 
 
-def my_nlta(graph: nx.classes.graph.Graph, epsilon, strategy='prob', true_file_path=None, max_epochs=100):
+def calculate_coreness(G, labels):
+    coreness = {}
+    communities = defaultdict(list)
+    for node, label in labels.items():
+        communities[label].append(node)
+    
+    for label, nodes in communities.items():
+        G_label = G.subgraph(nodes)
+        coreness_values = nx.core_number(G_label)
+        for node in nodes:
+            coreness[node] = coreness_values[node]
+    return coreness
+
+
+def decide_label(neighbors_labels, coreness=None, strategy='prob'):
+    if coreness:
+        label_weights = defaultdict(float)
+        for label in neighbors_labels:
+            label_weights[label] += coreness[label] + 1
+        
+        if strategy == 'prob':
+            total_weight = sum(label_weights.values())
+            probabilities = {label: weight / total_weight for label, weight in label_weights.items()}
+            return choices(list(probabilities.keys()), list(probabilities.values()))[0]
+        else:  # strategy == 'freq'
+            return max(label_weights, key=label_weights.get)
+    else:
+        if strategy == 'prob':
+            return choice(neighbors_labels)
+        else:  # strategy == 'freq'
+            return frequentest_label(neighbors_labels)
+
+
+def my_nlta(graph: nx.Graph, epsilon, strategy='prob', use_coreness=False, true_file_path=None, max_epochs=100):
     nodes = tuple(graph.nodes())
     nodes_num = len(nodes)
     stop_iteration = False
     epoch = 0
     assert strategy in ('prob', 'freq')
-    decide_label_func: function = choice if strategy == 'prob' else frequentest_label
 
     indices = sample(range(nodes_num), k=nodes_num)
     nodes = tuple(nodes[index] for index in indices)
@@ -108,6 +141,9 @@ def my_nlta(graph: nx.classes.graph.Graph, epsilon, strategy='prob', true_file_p
         postfix = dict()
         non_neighbor_count = 0
 
+        # Coreness 계산
+        coreness = calculate_coreness(graph, labels) if use_coreness else None
+
         for node in nodes:
             neighbors = get_relative_neighbors(node, epsilon, graph)
             neighbors_size = len(neighbors)
@@ -117,7 +153,8 @@ def my_nlta(graph: nx.classes.graph.Graph, epsilon, strategy='prob', true_file_p
                 non_neighbor_count += 1
 
             neighbors_labels = tuple(labels[neighbor] for neighbor in neighbors)
-            labels[node] = decide_label_func(neighbors_labels)
+            new_label = decide_label(neighbors_labels, coreness=coreness if use_coreness else None, strategy=strategy)
+            labels[node] = new_label
 
             pbar_update()
             
