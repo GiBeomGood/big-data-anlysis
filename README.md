@@ -21,4 +21,6 @@ Big Data Analysis
 ```
 
 + our algorithm is in `models.nlta`.
-+ for usage, see `experiment.ipynb`.
++ our table was made by three grid search file
++ the result (dictionary type) was saved in `checkpoints` folder by `.pickle` file
++ `results_charts.ipynb` file is including `DataFrame` format of those results.
